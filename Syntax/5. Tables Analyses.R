@@ -25,7 +25,7 @@ result_table <- result_table %>%
   relocate(Name, Estimate, `95% CI`, `p-value`)
 
 result_main <- result_table %>%
-  filter(!grepl("sensitivity", Name) & !grepl("protocol", Name)) %>%
+  filter(!grepl("sensitivity", Name) & !grepl("protocol", Name)& !grepl("icpc", Name)) %>%
   mutate(Name = case_when(
     Name == "time_total_documentation" ~ "Documentation time",
     Name == "time_total" ~ "Consultation time",
