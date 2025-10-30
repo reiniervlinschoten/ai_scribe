@@ -19,13 +19,14 @@ baseline_interviews <- readRDS(file = file.path(working_dir, "Processed", "basel
 baseline_experience <- readRDS(
   file = file.path(working_dir, "Processed", "outcomes_experience.Rds")
 )
-
 baseline_utaut <- readRDS(file = file.path(working_dir, "Processed", "outcomes_utaut.Rds")) %>%
   filter(period == "Baseline") %>%
   select(-period)
 
 
 baseline_gps <- left_join(baseline_gps, baseline_utaut, by="participant")
+
+outcomes_consultations <- readRDS(file = file.path(working_dir, "Processed", "outcomes_consultations.Rds"))
 
 var_label(baseline_gps) <- c(
   "Participant ID",
@@ -266,3 +267,33 @@ interview_table <- baseline_interviews %>%
 interview_table
 
 interview_table %>% as_gt() %>% gtsave(paste0(output_dir, "interview_table.rtf"))  
+
+outcomes_consultations <- outcomes_consultations %>% 
+  select(period, starts_with("time")) %>%
+  select(-time_non_documentation)
+
+var_label(outcomes_consultations) <- c(
+  "Period",
+  "Total consultation time",
+  "Time spent explaining tool",
+  "Time spent taking the medical history",
+  "Time spent doing the physical examination",
+  "Time spent on explaining diagnosis and treatment",
+  "Time spent consulting a colleague",
+  "Time spent on other tasks",
+  "Time spent on small talk",
+  "Time spent on typing documentation",
+  "Time spent on administrative duties",
+  "Time spent doing an intervention",
+  "Time spent waiting on the ambient scribe",
+  "Time spent copy and pasting the summary",
+  "Time spent multitasking",
+  "Time spent on the primary outcome: typing documentation, waiting on the scribe and copy and pasting the summary"
+)
+
+outcome_table <- outcomes_consultations %>%
+  tbl_summary(by=period)
+
+outcome_table
+
+outcome_table %>% as_gt() %>% gtsave(paste0(output_dir, "outcomes_table.rtf"))  
