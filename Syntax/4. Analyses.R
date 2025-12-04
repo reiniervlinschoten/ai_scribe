@@ -191,6 +191,43 @@ analysis_function_icpc <- function(outcome, dataset, name) {
   return(result_table)
 }
 
+
+analysis_function_ehr <- function(outcome, dataset, name) {
+  analysis <- lmer(as.formula(
+    paste(
+      outcome,
+      "~ period + consultation_planned_time + ehr_api + (1 | participant)"
+    )
+  ), data = dataset)
+  analysis_outcome <- as_tibble_row(summary(analysis)$coefficients["periodIntervention", c("Estimate", "Pr(>|t|)")])
+  analysis_confint <- as_tibble_row(confint(
+    analysis,
+    parm = c("periodIntervention"),
+    method = "boot",
+    .progress = "txt",
+    seed = "2025"
+  ))
+  
+  analysis_outcome_ehr <- as_tibble_row(summary(analysis)$coefficients["ehr_apiYes", c("Estimate", "Pr(>|t|)")])
+  analysis_confint_ehr <- as_tibble_row(confint(
+    analysis,
+    parm = c("ehr_apiYes"),
+    method = "boot",
+    .progress = "txt",
+    seed = "2025"
+  ))
+  
+  analysis_results <- bind_cols("Name" = paste0(outcome, "- ehr_api"), analysis_outcome, analysis_confint)
+  ehr_api_results <- bind_cols("Name" = paste0("integration", "- ehr_api"), analysis_outcome_ehr, analysis_confint_ehr)
+  result_table <- bind_rows(analysis_results, ehr_api_results)
+  
+  png(file = paste0(residuals_dir, "residuals_", outcome, "_ehr_api.png"))
+  simulateResiduals(analysis, plot = T)
+  dev.off()
+  
+  return(result_table)
+}
+
 outcomes <- names(outcomes_consultations %>% dplyr::select(time_total_documentation, time_total))
 
 outcomes_nb <- names(outcomes_consultations %>% dplyr::select(starts_with("note_")))
@@ -245,4 +282,15 @@ for (outcome in outcomes) {
 saveRDS(result_table,
         file = file.path(output_dir, "analyses_complete.Rds"))
 
+# Peer review, EHR integration
+result_table <- bind_rows(
+  result_table,
+  analysis_function_ehr(
+    "time_total_documentation",
+    outcomes_consultations,
+    "_ehr_api"
+  )
+)
 
+saveRDS(result_table,
+        file = file.path(output_dir, "analyses_complete_peer_review.Rds"))

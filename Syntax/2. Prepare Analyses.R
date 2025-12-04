@@ -222,7 +222,8 @@ outcomes_consultations <- dataset$reports$consultations %>%
                            as.character(sum(icpc1, icpc2, icpc3, icpc4, icpc5, icpc6)),
                            substring(re_icpc, 1, 1))) %>%
   ungroup() %>%
-  select(-starts_with("icpc"))
+  select(-starts_with("icpc")) %>%
+  left_join(baseline_gps %>% select(participant, ehr_api), by="participant")
 
 saveRDS(
   outcomes_consultations,
