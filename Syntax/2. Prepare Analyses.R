@@ -214,6 +214,16 @@ outcomes_consultations <- dataset$reports$consultations %>%
   mutate(time_non_documentation = time_total - time_total_documentation) %>%
   full_join(baseline_consultations %>% select(participant, starts_with("icpc"), `Repeating data Name Custom`),
             by=c("participant", "Repeating data Name Custom")) %>%
+  mutate(consultation_number = `Repeating data Name Custom` 
+         %>% gsub("Consultation - ", "", .) 
+         %>% gsub("H11P", "", .) 
+         %>% gsub("H12P", "", .) 
+         %>% as.integer()) %>%
+  group_by(participant, period) %>%
+  # Normalize consultations to 1 -> last for each period
+  mutate(consultation_number = consultation_number - min(consultation_number) + 1) %>%
+  # Set to 1 for baseline as we do not want interaction there
+  mutate(consultation_number = if_else(period == "Baseline", 1, consultation_number)) %>%
   select(-`Repeating data Name Custom`) %>%
   mutate(re_icpc = icpc1) %>%
   mutate(across(starts_with("icpc"), function(x) !is.na(x))) %>%
@@ -223,7 +233,9 @@ outcomes_consultations <- dataset$reports$consultations %>%
                            substring(re_icpc, 1, 1))) %>%
   ungroup() %>%
   select(-starts_with("icpc")) %>%
-  left_join(baseline_gps %>% select(participant, ehr_api), by="participant")
+  left_join(baseline_gps %>% select(participant, ehr_api), by="participant") %>%
+  # No interaction in baseline period
+  mutate(ehr_api = if_else(period == "Baseline", "No", ehr_api))
 
 saveRDS(
   outcomes_consultations,

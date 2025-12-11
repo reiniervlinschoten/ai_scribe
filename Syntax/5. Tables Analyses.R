@@ -13,22 +13,24 @@ output_dir <- glue("C:/Users/r.vanlinschoten/Documents/AI Scribe/{date} Output/"
 options(scipen=999)
 
 # CHANGE
-result_table <- readRDS(file = file.path(output_dir, "analyses_complete_peer_review.Rds"))
+result_table <- readRDS(file = file.path(output_dir, "analyses_complete_peer_review_final.Rds"))
 
 result_table <- result_table %>%
-  mutate(`95% CI` = if_else(
-    !is.na(periodIntervention[,1]),
-    glue("[{round(periodIntervention[,1], 2)}; {round(periodIntervention[,2], 2)}]"),
-    glue("[{round(ehr_apiYes[,1], 2)}; {round(ehr_apiYes[,2], 2)}]"))) %>%
+  rename_with( ~ gsub(":", "", .x)) %>%
+  mutate(`95% CI` = case_when(
+    !(is.na(periodIntervention[,1])) ~ glue("[{round(periodIntervention[,1], 2)}; {round(periodIntervention[,2], 2)}]"),
+    !(is.na(periodInterventionehr_apiYes[,1])) ~ glue("[{round(periodInterventionehr_apiYes[,1], 2)}; {round(periodInterventionehr_apiYes[,2], 2)}]"),
+    TRUE ~ glue("[{round(periodInterventionconsultation_number[,1], 2)}; {round(periodInterventionconsultation_number[,2], 2)}]")
+    )) %>% 
   rename(`p-value` = `Pr(>|z|)`) %>%
   mutate(`p-value` = if_else(is.na(`p-value`), `Pr(>|t|)`, `p-value`)) %>%
-  select(-`Pr(>|t|)`, -periodIntervention, -ehr_apiYes) %>%
+  select(-`Pr(>|t|)`, -periodIntervention, -periodInterventionehr_apiYes, -periodInterventionconsultation_number) %>%
   mutate(Estimate = round(Estimate, 2)) %>%
   mutate(`p-value` = format.pval(`p-value`, digits = 1, eps = 0.0001, nsmall=0)) %>%
   relocate(Name, Estimate, `95% CI`, `p-value`)
 
 result_main <- result_table %>%
-  filter(!grepl("sensitivity", Name) & !grepl("protocol", Name)& !grepl("icpc", Name) & !grepl("ehr_api", Name)) %>%
+  filter(!grepl("sensitivity", Name) & !grepl("protocol", Name)& !grepl("icpc", Name) & !grepl("ehr_api", Name) & !grepl("consultation_number", Name)) %>%
   mutate(Name = case_when(
     Name == "time_total_documentation" ~ "Documentation time",
     Name == "time_total" ~ "Consultation time",
@@ -157,4 +159,24 @@ result_ehr_api <- result_table %>%
 
 result_ehr_api
 
-result_ehr_api %>% gtsave(paste0(output_dir, "ehr_api_result_table.rtf")) 
+result_ehr_api %>% gtsave(paste0(output_dir, "ehr_api_result_table.rtf"))
+
+result_learning <- result_table %>%
+  filter(grepl("consultation_number", Name)) %>%
+  mutate(Name = case_when(
+    Name == "time_total_documentation- consultation_number" ~ "Effect ambient scribe",
+    Name == "integration- consultation_number" ~ "Learning effect"
+  )) %>%
+  gt() %>%
+  tab_row_group(label="Time outcomes", rows = c(1:2)) %>%
+  tab_footnote("Difference on an additive scale", locations = cells_row_groups(groups = c("Time outcomes"))) %>%
+  tab_footnote(
+    "CI=confidence interval"
+  ) %>%
+  tab_footnote(
+    "EHR=electronic health record"
+  )
+
+result_learning
+
+result_learning %>% gtsave(paste0(output_dir, "learning_result_table.rtf")) 

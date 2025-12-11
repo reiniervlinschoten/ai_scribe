@@ -139,7 +139,6 @@ analysis_function_nb <- function(outcome, dataset, name) {
 
 
 analysis_function_experience <- function(outcome, dataset) {
-  print(outcome)
   # First normal analysis
   analysis <- lmer(as.formula(
     paste(
@@ -196,7 +195,7 @@ analysis_function_ehr <- function(outcome, dataset, name) {
   analysis <- lmer(as.formula(
     paste(
       outcome,
-      "~ period + consultation_planned_time + ehr_api + (1 | participant)"
+      "~ period + period:ehr_api + consultation_planned_time + (1 | participant)"
     )
   ), data = dataset)
   analysis_outcome <- as_tibble_row(summary(analysis)$coefficients["periodIntervention", c("Estimate", "Pr(>|t|)")])
@@ -208,10 +207,10 @@ analysis_function_ehr <- function(outcome, dataset, name) {
     seed = "2025"
   ))
   
-  analysis_outcome_ehr <- as_tibble_row(summary(analysis)$coefficients["ehr_apiYes", c("Estimate", "Pr(>|t|)")])
+  analysis_outcome_ehr <- as_tibble_row(summary(analysis)$coefficients["periodIntervention:ehr_apiYes", c("Estimate", "Pr(>|t|)")])
   analysis_confint_ehr <- as_tibble_row(confint(
     analysis,
-    parm = c("ehr_apiYes"),
+    parm = c("periodIntervention:ehr_apiYes"),
     method = "boot",
     .progress = "txt",
     seed = "2025"
@@ -222,6 +221,43 @@ analysis_function_ehr <- function(outcome, dataset, name) {
   result_table <- bind_rows(analysis_results, ehr_api_results)
   
   png(file = paste0(residuals_dir, "residuals_", outcome, "_ehr_api.png"))
+  simulateResiduals(analysis, plot = T)
+  dev.off()
+  
+  return(result_table)
+}
+
+
+analysis_function_learning <- function(outcome, dataset, name) {
+  analysis <- lmer(as.formula(
+    paste(
+      outcome,
+      "~ period + period:consultation_number + consultation_planned_time + (1 | participant)"
+    )
+  ), data = dataset)
+  analysis_outcome <- as_tibble_row(summary(analysis)$coefficients["periodIntervention", c("Estimate", "Pr(>|t|)")])
+  analysis_confint <- as_tibble_row(confint(
+    analysis,
+    parm = c("periodIntervention"),
+    method = "boot",
+    .progress = "txt",
+    seed = "2025"
+  ))
+  
+  analysis_outcome_learning <- as_tibble_row(summary(analysis)$coefficients["periodIntervention:consultation_number", c("Estimate", "Pr(>|t|)")])
+  analysis_confint_learning <- as_tibble_row(confint(
+    analysis,
+    parm = c("periodIntervention:consultation_number"),
+    method = "boot",
+    .progress = "txt",
+    seed = "2025"
+  ))
+  
+  analysis_results <- bind_cols("Name" = paste0(outcome, "- consultation_number"), analysis_outcome, analysis_confint)
+  learning_results <- bind_cols("Name" = paste0("integration", "- consultation_number"), analysis_outcome_learning, analysis_confint_learning)
+  result_table <- bind_rows(analysis_results, learning_results)
+  
+  png(file = paste0(residuals_dir, "residuals_", outcome, "_learning.png"))
   simulateResiduals(analysis, plot = T)
   dev.off()
   
@@ -294,3 +330,17 @@ result_table <- bind_rows(
 
 saveRDS(result_table,
         file = file.path(output_dir, "analyses_complete_peer_review.Rds"))
+
+
+# Peer review, learning effects
+result_table <- bind_rows(
+  result_table,
+  analysis_function_learning(
+    "time_total_documentation",
+    outcomes_consultations,
+    "_learning"
+  )
+)
+
+saveRDS(result_table,
+        file = file.path(output_dir, "analyses_complete_peer_review_final.Rds"))
